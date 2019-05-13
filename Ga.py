@@ -10,13 +10,13 @@ def calcbits(bounds,precision):
     return bits
 
 class Ga(object):
-    def __init__(self, popSize, bounds, pc, pm, options=(1e-6, 1)):
+    def __init__(self, bounds, popSize=100,  pc=0.7, pm=0.08, options=(1e-6, 1),epoch=50):
         self.popSize = popSize
         self.bounds = bounds
         self.pc = pc
         self.pm = pm
         self.options = options
-        self.maxGen = 500
+        self.maxGen = epoch
         self.numVar = bounds.shape[0]
 
     def initPop(self):
@@ -27,12 +27,59 @@ class Ga(object):
         pop = np.round(np.random.random([popSize,bitLength]))
         return pop
 
+    def tournSelect(self,pop,fitvalue,tournament_size=3):
+        tournSize = tournament_size
+        e = pop.shape[1]
+        n = pop.shape[0]
+        newPop = np.zeros((n,e))
+        tourns = np.floor(np.random.rand(tournSize, n)*n)
+        tourns[tourns==n] = n-1
+
+        for i in range(n):
+            curIndex = tourns[:,i]
+            curIndex = curIndex.astype(np.int16)
+            candiate = fitvalue[curIndex]
+            if self.options[1]==1:
+                winnerIndex = np.argmin(candiate)
+            else:
+                winnerIndex = np.argmax(candiate)
+            newPop[i,:] = pop[curIndex][winnerIndex]
+
+        return newPop
+
+
+
+    def normGeomSelect(self,pop,fitvalue,Pro=0.09):
+        q = Pro
+        e = pop.shape[1]
+        n = pop.shape[0]
+        newPop = np.zeros((n, e))
+        fit = np.zeros(n)
+        x = np.zeros((n, 2),dtype=np.int)
+        x[:,0] = np.arange(n, 0, -1)
+        x[:,1] = np.argsort(fitvalue)
+        r = q / (1 - np.power(1-q,n))
+        fit[x[:,1]] = r * np.power(1-q, x[:,0] - 1)
+        fit = np.cumsum(fit)
+        rNums = np.sort(np.random.random(n))
+
+        fitin = 0
+        newin = 0
+
+        while newin < n:
+            if rNums[newin] < fit[fitin]:
+                newPop[newin,:] = pop[fitin, :]
+                newin += 1
+            else:
+                fitin += 1
+        return newPop
 
 
     def selection(self,pop, fitvalue):
 
         [px, py] = pop.shape[:]
-        fitvalue = fitvalue + np.min(fitvalue)
+        fitvalue = fitvalue + abs(np.min(fitvalue))
+
         totalfit = np.sum(fitvalue)
         p_fitvalue = fitvalue / totalfit
         p_fitvalue = np.cumsum(p_fitvalue)
@@ -118,7 +165,7 @@ class Ga(object):
 
 
     def train(self,Func,kwargs):
-
+        print('开始遗传优化')
         pop = self.initPop()
         decimalValue = Ga.binary2decimal(pop,self.bounds,self.options[0])
         kwargs['pop'] = decimalValue
@@ -136,7 +183,7 @@ class Ga(object):
         for i in range(self.maxGen):
 
             # 选择操作
-            newpop = self.selection(pop,fitness)
+            newpop = self.tournSelect(pop,fitness)
 
             #交叉操作
             newpop = self.crossover(newpop)
@@ -167,7 +214,8 @@ class Ga(object):
                     bestSolution = bestindividual
 
             record[i] = bestfit
-            print('Fitness[%d]: %.3f' % (i, record[i]))
+            # print('Fitness[%d]: %.3f' % (i, record[i]))
+            print("%d/%d[==============]Loss:%.4f" % (i + 1, self.maxGen, record[i]))
             pop = newpop
 
         bestSolution = bestSolution.reshape(1,-1)
