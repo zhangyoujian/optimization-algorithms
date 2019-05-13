@@ -1,28 +1,7 @@
 import numpy as np
-from pyswarms.single.global_best import GlobalBestPSO
-
-# 粒子群优化算法
-class MPSO(object):
-    def __init__(self,valueRange):
-
-        x_min = valueRange[:,0]
-        x_max = valueRange[:,1]
-        self.xRange = (x_min, x_max)
-
-    def train(self,calFun, kwargs):
-
-        options = {'c1': 1.5, 'c2': 1.3, 'w': 0.9}
-        bounds = self.xRange
-        dim = len(self.xRange[0])
-        optimizer = GlobalBestPSO(n_particles=20, dimensions=dim, options=options, bounds=bounds)
-        cost, pos = optimizer.optimize(calFun, 25, **kwargs)
-        return pos,cost
-
-
-
 
 class PSO(object):
-    def __init__(self, valueRange, opt = 1):
+    def __init__(self,valueRange,opt=1,popSize=20, epoch=200):
 
         self.opt = opt
         self.Wini = 0.9
@@ -31,8 +10,8 @@ class PSO(object):
         self.c1 = 1.5
         self.c2 = 1.3
 
-        self.maxgen = 25
-        self.sizepop = 20
+        self.maxgen = epoch
+        self.sizepop = popSize
 
         self.posMax = valueRange[:, 1]
         self.posMin = valueRange[:, 0]
@@ -52,7 +31,7 @@ class PSO(object):
 
     def train(self,Func,kwargs):
 
-
+        print('开始粒子群优化')
         kwargs['pop'] = self.pop
         fitness = Func(**kwargs)
 
@@ -87,10 +66,12 @@ class PSO(object):
 
             # 自适应变异
             p = np.random.random()
-            if p > 0.4:
-                k = np.random.randint(0, self.sizepop-1)
-                for L in range(self.num):
-                    self.pop[k, L] = np.random.uniform(self.posMin[L], self.posMax[L])
+            if p > 0.5:
+                k = np.random.randint(0, self.sizepop)
+                var = np.random.randint(0, self.num)
+                self.pop[k, var] = np.random.uniform(self.posMin[var], self.posMax[var])
+                # for L in range(self.num):
+                #     self.pop[k, L] = np.random.uniform(self.posMin[L], self.posMax[L])
 
             kwargs['pop'] = self.pop
             fitness = Func(**kwargs)
@@ -122,7 +103,8 @@ class PSO(object):
 
 
             record[t] = fitnesszbest  # 记录群体最优位置的变化
-            print('MSECV[%d]: %.3f' % (t,record[t]))
+            # print('MSECV[%d]: %.3f' % (t,record[t]))
+            print("%d/%d[==============]Loss:%.4f" % (t + 1, self.maxgen, record[t]))
             t = t + 1
 
         return zbest,record
